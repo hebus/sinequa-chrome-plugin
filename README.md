@@ -55,6 +55,22 @@ optionnel — résolu depuis la config de l'app (`defaultQueryName`, sinon premi
 - les backends hors `docsearch.sinequa.com` passent par `optional_host_permissions` :
   Chrome demande la permission à l'enregistrement de l'environnement (ou au login)
 
+### Palette (raccourci clavier — `Ctrl+Maj+Espace`)
+
+Une palette de recherche façon « Spotlight », injectée dans la page courante (`content.js`,
+Shadow DOM — aucun conflit de style avec la page) :
+
+- **`Ctrl+Maj+Espace`** (configurable : `chrome://extensions/shortcuts`) ouvre/ferme la palette —
+  centrée à l'écran, elle **remonte vers le haut** dès que des résultats s'affichent
+- recherche **au fil de la frappe** (debounce 220 ms, dès 2 caractères)
+- 100 % clavier : **↑/↓** (ou Tab) sélectionnent, **↵** ouvre dans un nouvel onglet,
+  **Ctrl+↵** ouvre en arrière-plan, **Échap** ferme
+- le raccourci accorde `activeTab` : l'injection (`scripting`) ne demande aucune host
+  permission supplémentaire ; les requêtes passent par le service worker (le token n'est
+  jamais exposé à la page)
+- pages non injectables (`chrome://`, Web Store…) : repli sur la popup
+- non connecté → bouton **Se connecter** directement dans la palette
+
 ### Omnibox (mot-clé `sq`)
 
 Dans la barre d'adresse : `sq` puis espace, puis le texte — les suggestions arrivent en
@@ -85,10 +101,11 @@ Affichage : titre (lien `url1`), extraits pertinents (texte brut), `treepath`, t
 
 | Fichier | Rôle |
 |---|---|
-| `manifest.json` | MV3 — host permissions (clé du mécanisme), `alarms`, omnibox, options |
+| `manifest.json` | MV3 — host permissions (clé du mécanisme), `alarms`, omnibox, commande clavier, options |
 | `sinequa.js` | client API (paramétré par environnement) + stockage environnements/tokens |
-| `background.js` | service worker — login (silencieux puis interactif), renouvellement horaire, omnibox |
-| `popup.html/css/js` | UI : environnement actif, statut, recherche, résultats |
+| `background.js` | service worker — login (silencieux puis interactif), renouvellement horaire, omnibox, palette |
+| `content.js` | palette « Spotlight » injectée à la demande (Shadow DOM, navigation clavier) |
+| `popup.html/css/js` | UI : environnement actif, statut, recherche, résultats (navigation clavier) |
 | `options.html/css/js` | gestion des environnements |
 
 ## Debug

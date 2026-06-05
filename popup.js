@@ -15,18 +15,53 @@ const searchBtn = el("search-btn");
 const message = el("message");
 const meta = el("meta");
 const results = el("results");
+const navHint = el("nav-hint");
+const shortcutHint = el("shortcut-hint");
 
 let env = null;
 let auth = null;
+let selIdx = -1; // sélection clavier dans la liste de résultats
 
 optionsBtn.onclick = () => chrome.runtime.openOptionsPage();
 envSelect.onchange = async () => {
   await setActiveEnv(envSelect.value);
   results.replaceChildren();
   meta.hidden = true;
+  navHint.hidden = true;
   showMessage("");
   await init();
 };
+
+// ↑/↓ naviguent dans les résultats, ↵ ouvre la sélection (sinon soumet la recherche)
+input.addEventListener("keydown", (e) => {
+  const items = results.children;
+  if (!items.length) return;
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    select((selIdx + 1) % items.length);
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    select((selIdx - 1 + items.length) % items.length);
+  } else if (e.key === "Enter" && selIdx >= 0) {
+    e.preventDefault();
+    items[selIdx].querySelector("a")?.click();
+  }
+});
+input.addEventListener("input", () => select(-1)); // nouvelle frappe : retour à la recherche
+
+function select(i) {
+  selIdx = i;
+  [...results.children].forEach((li, j) => li.classList.toggle("sel", j === i));
+  if (i >= 0) results.children[i]?.scrollIntoView({ block: "nearest" });
+}
+
+// affiche le raccourci réel de la palette (configurable dans chrome://extensions/shortcuts)
+chrome.commands?.getAll((commands) => {
+  const shortcut = commands?.find((c) => c.name === "toggle-palette")?.shortcut;
+  shortcutHint.textContent = shortcut
+    ? `${shortcut} ouvre la recherche sur la page`
+    : "Astuce : assignez un raccourci dans chrome://extensions/shortcuts";
+});
 
 init();
 
@@ -110,6 +145,7 @@ async function logout() {
   auth = null;
   results.replaceChildren();
   meta.hidden = true;
+  navHint.hidden = true;
   showMessage("");
   render();
 }
@@ -122,6 +158,7 @@ form.addEventListener("submit", async (e) => {
   searchBtn.disabled = true;
   showMessage("Recherche…");
   meta.hidden = true;
+  navHint.hidden = true;
   results.replaceChildren();
   try {
     const { result, refreshedToken } = await fetchQuery(env, auth.token, { text });
@@ -147,6 +184,8 @@ function renderResults(result) {
   const records = result.records ?? [];
   meta.textContent = `${result.totalRowCount ?? records.length} résultat(s)`;
   meta.hidden = false;
+  selIdx = -1;
+  navHint.hidden = records.length === 0;
   results.replaceChildren(
     ...records.map((r) => {
       const li = document.createElement("li");
@@ -156,6 +195,9 @@ function renderResults(result) {
       a.rel = "noreferrer";
       a.textContent = r.title || r.id;
       li.append(a);
+      li.addEventListener("click", (e) => {
+        if (e.target !== a) a.click(); // toute la ligne est cliquable
+      });
       const extractHtml = Array.isArray(r.relevantExtracts) ? r.relevantExtracts.join(" … ") : r.relevantExtracts;
       if (extractHtml) {
         const extract = document.createElement("div");

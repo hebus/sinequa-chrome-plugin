@@ -125,6 +125,70 @@ async function firstValidToken(env, candidates) {
   throw new Error("Aucun token candidat ne passe la requête de validation");
 }
 
+/* ─── Palette (raccourci clavier → overlay injecté dans la page courante) ─── */
+// Le raccourci accorde activeTab : l'injection scripting ne demande aucune host
+// permission large. Sur les pages non injectables (chrome://, Web Store…), repli
+// sur la popup d'action.
+
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command !== "toggle-palette") return;
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return;
+  try {
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] });
+    await chrome.tabs.sendMessage(tab.id, { type: "palette-toggle" });
+  } catch {
+    chrome.action.openPopup().catch(() => {});
+  }
+});
+
+// Messages du content script — les recherches passent par ici : token et host
+// permissions vivent dans l'extension, pas dans la page.
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.type === "palette-open") {
+    chrome.tabs.create({ url: msg.url, active: !msg.background });
+    return false;
+  }
+  if (msg?.type === "palette-state") {
+    getState()
+      .then(async ({ active }) => sendResponse({ env: active, connected: Boolean(await getValidAuth(active)) }))
+      .catch(() => sendResponse(null));
+    return true;
+  }
+  if (msg?.type === "palette-search") {
+    paletteSearch(msg.text)
+      .then(sendResponse)
+      .catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
+    return true;
+  }
+  return false;
+});
+
+async function paletteSearch(text) {
+  const { envs, active } = await getState();
+  const env = envs[active];
+  const auth = env && (await getValidAuth(active));
+  if (!auth) return { ok: false, notConnected: true };
+  try {
+    const { result, refreshedToken } = await fetchQuery(env, auth.token, { text, pageSize: 8 });
+    if (refreshedToken) await storeAuth(active, refreshedToken);
+    const records = (result.records ?? []).map((r) => ({
+      title: r.title || r.id,
+      url: r.url1 || null,
+      extract: Array.isArray(r.relevantExtracts) ? r.relevantExtracts.join(" … ") : (r.relevantExtracts ?? ""),
+      path: r.treepath?.[0] ?? "",
+    }));
+    return { ok: true, total: result.totalRowCount ?? records.length, records };
+  } catch (e) {
+    if (String(e).includes("HTTP 401")) {
+      await clearAuth(active); // token révoqué côté serveur
+      await updateBadge();
+      return { ok: false, notConnected: true };
+    }
+    throw e;
+  }
+}
+
 /* ─── Renouvellement proactif ─── */
 
 chrome.runtime.onInstalled.addListener(scheduleRefresh);

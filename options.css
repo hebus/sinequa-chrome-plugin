@@ -1,10 +1,10 @@
 :root {
   color-scheme: light dark;
-  --border: light-dark(#d0d7de, #3d444d);
-  --muted: light-dark(#59636e, #9198a1);
-  --accent: #0969da;
-  --ok: #1a7f37;
-  --err: #cf222e;
+  --border: light-dark(rgba(27, 31, 36, 0.12), rgba(240, 246, 252, 0.12));
+  --muted: light-dark(#636c76, #9198a1);
+  --accent: light-dark(#0969da, #539bf5);
+  --ok: light-dark(#1a7f37, #57ab5a);
+  --err: light-dark(#cf222e, #f47067);
 }
 
 * { box-sizing: border-box; }

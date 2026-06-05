@@ -1,11 +1,17 @@
 {
   "manifest_version": 3,
   "name": "Sinequa Doc Search",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Recherche Sinequa multi-backends depuis Chrome (par défaut : docsearch.sinequa.com, app tech-doc-ns)",
   "action": {
     "default_popup": "popup.html",
     "default_title": "Sinequa Doc Search"
+  },
+  "commands": {
+    "toggle-palette": {
+      "suggested_key": { "default": "Ctrl+Shift+Space", "mac": "Command+Shift+Space" },
+      "description": "Ouvrir la palette de recherche sur la page courante"
+    }
   },
   "background": {
     "service_worker": "background.js",
@@ -16,7 +22,7 @@
     "page": "options.html",
     "open_in_tab": true
   },
-  "permissions": ["storage", "alarms"],
+  "permissions": ["storage", "alarms", "scripting", "activeTab"],
   "host_permissions": ["https://docsearch.sinequa.com/*"],
   "optional_host_permissions": ["https://*/*"]
 }
