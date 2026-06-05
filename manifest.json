@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Sinequa Doc Search",
+  "version": "0.3.0",
+  "description": "Recherche Sinequa multi-backends depuis Chrome (par défaut : docsearch.sinequa.com, app tech-doc-ns)",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Sinequa Doc Search"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "omnibox": { "keyword": "sq" },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "permissions": ["storage", "alarms"],
+  "host_permissions": ["https://docsearch.sinequa.com/*"],
+  "optional_host_permissions": ["https://*/*"]
+}

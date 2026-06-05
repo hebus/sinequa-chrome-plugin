@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Sinequa Doc Search</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <select id="env-select" title="Environnement"></select>
+    <div id="status">
+      <span id="status-dot" class="dot"></span>
+      <span id="status-text">Vérification…</span>
+    </div>
+    <button id="auth-btn" hidden></button>
+    <button id="options-btn" title="Gérer les environnements">⚙</button>
+  </header>
+
+  <form id="search-form" hidden>
+    <input id="search-input" type="search" placeholder="Rechercher…" autocomplete="off" autofocus />
+    <button type="submit" id="search-btn">🔍</button>
+  </form>
+
+  <div id="message" hidden></div>
+  <div id="meta" hidden></div>
+  <ul id="results"></ul>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

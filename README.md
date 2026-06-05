@@ -1,0 +1,99 @@
+# Sinequa Doc Search — extension Chrome
+
+Extension Chrome (Manifest V3) qui s'authentifie sur un backend Sinequa et interroge sa query
+de recherche. Par défaut : `https://docsearch.sinequa.com`, app `tech-doc-ns`, query
+`tech-doc-pf-ns-en_query` — d'autres environnements s'ajoutent dans la page d'options.
+
+L'authentification reprend le pattern du CLI [`nodejs-atomic-sample`](../nodejs-atomic-sample)
+(`login.js` / `refresh.js`), mais **simplifié par le contexte extension** : grâce aux host
+permissions, les `fetch` de l'extension ne sont pas soumis au CORS et portent les cookies du
+backend — plus besoin de serveur loopback local ni de snippet console.
+
+## Installation (mode développeur)
+
+1. Chrome → `chrome://extensions`
+2. Activer **Mode développeur** (en haut à droite)
+3. **Charger l'extension non empaquetée** → choisir ce dossier (`plugin-chrome`)
+4. Épingler l'icône, ouvrir la popup → **Se connecter**
+
+## Fonctionnement
+
+### Authentification (background.js)
+
+1. **Silencieux d'abord** : si un cookie de session Sinequa existe déjà (vous êtes passé sur
+   le backend récemment), l'échange cookie → JWT se fait sans rien ouvrir.
+2. Sinon, **flow interactif** :
+   - `GET api/v1/app?preLogin=true` → découverte du provider OAuth (`autoOAuthProvider`)
+   - `POST api/v1/security.oauth { action: "getcode", tokenInCookie: true }` → URL de login
+   - ouverture d'un onglet sur la page de login (Keycloak) — *la popup se ferme à ce moment,
+     c'est normal : le service worker termine le flow seul*
+   - au retour de l'onglet sur le backend (cookie de session posé), échange cookie → JWT :
+     `GET challenge?action=getCsrfToken` → `POST security.webtoken { tokenInCookie: false }`
+   - le JWT est **validé** par une vraie query avant d'être stocké (`chrome.storage.local`),
+     l'onglet est fermé, le badge ✓ s'affiche
+3. Rouvrir la popup : connecté.
+
+### Cycle de vie du token
+
+- **Renouvellement proactif** (pattern `refresh.js` du sample) : une alarme horaire
+  (`chrome.alarms`) renouvelle en Bearer (`security.webtoken`) tout token qui expire dans
+  moins de 24 h — le login navigateur ne sert qu'au bootstrap ou après expiration
+- quand le serveur renvoie un header `sinequa-jwt-refresh` sur une recherche, le token
+  stocké est aussi renouvelé au fil de l'eau
+- expiration vérifiée localement (claim `exp`) à chaque ouverture de popup ; `401` sur une
+  recherche → retour à l'état déconnecté
+
+### Multi-environnements (options.html)
+
+Équivalent des `.env.<nom>` du CLI : chaque environnement = `{ nom, backendUrl, app, query? }`,
+avec **un token par environnement**, stocké dans `chrome.storage.local`. Le nom de query est
+optionnel — résolu depuis la config de l'app (`defaultQueryName`, sinon première query, sinon
+`_query`), comme le REPL du sample.
+
+- ⚙ dans la popup → page d'options (ajout / modification / suppression)
+- le sélecteur en haut de la popup bascule l'environnement actif (l'équivalent de `.use <nom>`)
+- les backends hors `docsearch.sinequa.com` passent par `optional_host_permissions` :
+  Chrome demande la permission à l'enregistrement de l'environnement (ou au login)
+
+### Omnibox (mot-clé `sq`)
+
+Dans la barre d'adresse : `sq` puis espace, puis le texte — les suggestions arrivent en
+direct (titres des 6 premiers résultats de l'environnement actif, debounce 250 ms) :
+
+- **sélectionner une suggestion** ouvre le document (`url1`) — Maj/Ctrl pour le choix de l'onglet
+- **Entrée sur le texte brut** ouvre la popup pré-remplie avec la recherche lancée
+  (repli : ouvre directement le premier résultat si Chrome refuse d'ouvrir la popup)
+- non connecté → la ligne par défaut l'indique ; Entrée ouvre la popup pour se connecter
+
+### Recherche (popup.js)
+
+`POST api/v1/query` avec le payload exact de la lib `@sinequa/atomic` :
+
+```json
+{
+  "app": "tech-doc-ns",
+  "query": { "name": "tech-doc-pf-ns-en_query", "text": "…" },
+  "locale": "en",
+  "noUserOverride": true,
+  "noAutoAuthentication": true
+}
+```
+
+Affichage : titre (lien `url1`), extraits pertinents (texte brut), `treepath`, total.
+
+## Fichiers
+
+| Fichier | Rôle |
+|---|---|
+| `manifest.json` | MV3 — host permissions (clé du mécanisme), `alarms`, omnibox, options |
+| `sinequa.js` | client API (paramétré par environnement) + stockage environnements/tokens |
+| `background.js` | service worker — login (silencieux puis interactif), renouvellement horaire, omnibox |
+| `popup.html/css/js` | UI : environnement actif, statut, recherche, résultats |
+| `options.html/css/js` | gestion des environnements |
+
+## Debug
+
+- Service worker : `chrome://extensions` → carte de l'extension → **service worker** (console —
+  les renouvellements y sont tracés `[refresh] <env> : …`)
+- Popup : clic droit sur la popup → **Inspecter**
+- État stocké : dans une de ces consoles, `chrome.storage.local.get(console.log)`

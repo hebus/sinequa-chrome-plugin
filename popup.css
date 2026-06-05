@@ -1,0 +1,78 @@
+:root {
+  color-scheme: light dark;
+  --border: light-dark(#d0d7de, #3d444d);
+  --muted: light-dark(#59636e, #9198a1);
+  --accent: #0969da;
+  --ok: #1a7f37;
+  --err: #cf222e;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  width: 420px;
+  margin: 0;
+  padding: 12px;
+  font: 13px/1.45 system-ui, sans-serif;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+#env-select {
+  font: inherit;
+  font-size: 12px;
+  max-width: 120px;
+  padding: 3px 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+}
+
+#status { flex: 1; justify-content: flex-end; }
+#options-btn { padding: 4px 7px; }
+
+#status { display: flex; align-items: center; gap: 6px; min-width: 0; }
+#status-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.ok { background: var(--ok); }
+.dot.err { background: var(--err); }
+
+button {
+  font: inherit;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+button:hover { border-color: var(--accent); color: var(--accent); }
+button:disabled { opacity: 0.5; cursor: wait; }
+
+#search-form { display: flex; gap: 6px; }
+#search-input {
+  flex: 1;
+  font: inherit;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+#search-input:focus { outline: none; border-color: var(--accent); }
+
+#message { margin-top: 10px; color: var(--muted); }
+#message.error { color: var(--err); white-space: pre-wrap; word-break: break-word; }
+
+#meta { margin: 10px 0 4px; color: var(--muted); font-size: 12px; }
+
+#results { list-style: none; margin: 0; padding: 0; }
+#results li { padding: 8px 0; border-top: 1px solid var(--border); }
+#results a { color: var(--accent); text-decoration: none; font-weight: 600; }
+#results a:hover { text-decoration: underline; }
+#results .extract { margin-top: 2px; color: var(--muted); font-size: 12px; }
+#results .path { margin-top: 2px; font-size: 11px; color: var(--muted); opacity: 0.8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
