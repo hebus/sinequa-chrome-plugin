@@ -10,6 +10,11 @@
   if (window.__sinequaPalette) return; // déjà injectée : le listener existant gère le toggle
   window.__sinequaPalette = true;
 
+  const HOST_ID = "sinequa-palette-host";
+  // un rechargement de l'extension crée un nouveau monde isolé : l'instance précédente
+  // est orpheline (chrome.runtime mort) mais son DOM persiste — on l'évacue
+  document.getElementById(HOST_ID)?.remove();
+
   const DEBOUNCE_MS = 220;
   const MIN_CHARS = 2;
   const RECENTER_DELAY_MS = 450; // délai avant repli/recentrage quand la recherche se vide
@@ -160,8 +165,44 @@
     if (msg?.type === "palette-toggle") (isOpen ? close : show)();
   });
 
+  /* ─── Robustesse au rechargement de l'extension ───
+     Quand l'extension est rechargée/mise à jour, cette instance devient orpheline :
+     chrome.runtime.sendMessage lève alors une exception SYNCHRONE (« Extension context
+     invalidated ») qu'un .catch() ne peut pas rattraper. Tout passe par send(). */
+
+  function contextAlive() {
+    try {
+      return Boolean(chrome.runtime?.id);
+    } catch {
+      return false;
+    }
+  }
+
+  /** sendMessage sûr : ne lève jamais. Contexte mort → message à l'utilisateur, renvoie null. */
+  async function send(msg) {
+    try {
+      return await chrome.runtime.sendMessage(msg);
+    } catch {
+      if (!contextAlive() && isOpen) {
+        setSpinner(false);
+        renderNote("L'extension a été rechargée — fermez (Échap) puis rouvrez la palette avec le raccourci.", { error: true });
+      }
+      return null;
+    }
+  }
+
+  /** Retire cette instance de la page — la prochaine injection repart de zéro. */
+  function destroy() {
+    isOpen = false;
+    clearTimeout(timer);
+    refs?.host.remove();
+    refs = null;
+    window.__sinequaPalette = false;
+  }
+
   function build() {
     const host = document.createElement("div");
+    host.id = HOST_ID;
     host.style.display = "none";
     const root = host.attachShadow({ mode: "open" });
     root.innerHTML = `
@@ -248,7 +289,7 @@
     requestAnimationFrame(() => refs.overlay.classList.add("open")); // laisse la transition jouer
     refs.input.focus();
 
-    const st = await chrome.runtime.sendMessage({ type: "palette-state" }).catch(() => null);
+    const st = await send({ type: "palette-state" });
     if (!isOpen) return;
     refs.badge.textContent = st?.env ?? "";
     refs.badge.hidden = !st?.env;
@@ -263,7 +304,9 @@
     seq++; // toute réponse en vol devient périmée
     refs.overlay.classList.remove("open");
     setTimeout(() => {
-      if (!isOpen) refs.host.style.display = "none";
+      if (isOpen) return;
+      if (!contextAlive()) destroy(); // instance orpheline : on libère la place
+      else refs.host.style.display = "none";
     }, 180);
     lastFocus?.focus?.();
   }
@@ -296,9 +339,14 @@
   async function runSearch(text) {
     const mySeq = ++seq;
     setSpinner(true);
-    const res = await chrome.runtime.sendMessage({ type: "palette-search", text }).catch((e) => ({ ok: false, error: String(e) }));
+    const res = await send({ type: "palette-search", text });
     if (mySeq !== seq || !isOpen) return; // frappe plus récente partie depuis
     setSpinner(false);
+    if (res === null) {
+      // contexte mort : send() a déjà affiché le message ; sinon, worker muet
+      if (contextAlive()) renderNote("Le service worker n'a pas répondu — réessayez.", { error: true });
+      return;
+    }
     if (res?.ok) {
       setStatus(true);
       if (res.used) {
@@ -391,7 +439,7 @@
       btn.disabled = true;
       renderNote("Authentification dans un onglet… La palette se mettra à jour au retour.");
       // le service worker mène le flow seul ; la réponse arrive quand le login aboutit
-      const res = await chrome.runtime.sendMessage({ type: "login" }).catch(() => null);
+      const res = await send({ type: "login" });
       if (!isOpen) return;
       if (res?.ok) {
         setStatus(true);
@@ -439,7 +487,7 @@
 
   function openRecord(record, { background = false } = {}) {
     if (!record?.url) return;
-    chrome.runtime.sendMessage({ type: "palette-open", url: record.url, background }).catch(() => {});
+    send({ type: "palette-open", url: record.url, background });
     if (!background) close();
   }
 
