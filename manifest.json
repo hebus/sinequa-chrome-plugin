@@ -20,7 +20,7 @@
   "omnibox": { "keyword": "sq" },
   "options_ui": {
     "page": "options.html",
-    "open_in_tab": true
+    "open_in_tab": false
   },
   "permissions": ["storage", "alarms", "scripting", "activeTab"],
   "host_permissions": ["https://docsearch.sinequa.com/*"],

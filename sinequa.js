@@ -138,6 +138,7 @@ export async function resolveQueryName(env, token) {
  */
 export async function fetchQuery(env, token, query) {
   const name = query.name ?? (await resolveQueryName(env, token));
+  console.log(`[query] ${env.name} → POST ${env.backendUrl}/api/v1/query (app=${env.app}, query=${name}, text=${JSON.stringify(query.text ?? "")})`);
   const res = await fetch(`${env.backendUrl}/api/v1/query`, {
     method: "POST",
     headers: { ...JSON_HEADERS, Authorization: `Bearer ${token}` },

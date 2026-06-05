@@ -301,6 +301,11 @@
     setSpinner(false);
     if (res?.ok) {
       setStatus(true);
+      if (res.used) {
+        // transparence : les paramètres réellement interrogés, visibles au pied
+        refs.statusText.textContent = `${res.used.env} · ${res.used.app} · ${res.used.query}`;
+        refs.statusText.title = res.used.backend;
+      }
       setRecords(res.records);
       if (res.records.length === 0) renderNote("Aucun résultat.");
     } else if (res?.notConnected) {

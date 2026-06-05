@@ -18,6 +18,7 @@ import {
   getState,
   getValidAuth,
   refreshToken,
+  resolveQueryName,
   storeAuth,
   validateToken,
 } from "./sinequa.js";
@@ -170,7 +171,10 @@ async function paletteSearch(text) {
   const auth = env && (await getValidAuth(active));
   if (!auth) return { ok: false, notConnected: true };
   try {
-    const { result, refreshedToken } = await fetchQuery(env, auth.token, { text, pageSize: 8 });
+    // nom résolu ici (et non dans fetchQuery) pour le renvoyer à l'UI : les
+    // paramètres réellement interrogés sont affichés dans le pied de la palette
+    const name = await resolveQueryName(env, auth.token);
+    const { result, refreshedToken } = await fetchQuery(env, auth.token, { text, name, pageSize: 8 });
     if (refreshedToken) await storeAuth(active, refreshedToken);
     const records = (result.records ?? []).map((r) => ({
       title: r.title || r.id,
@@ -178,7 +182,12 @@ async function paletteSearch(text) {
       extract: Array.isArray(r.relevantExtracts) ? r.relevantExtracts.join(" … ") : (r.relevantExtracts ?? ""),
       path: r.treepath?.[0] ?? "",
     }));
-    return { ok: true, total: result.totalRowCount ?? records.length, records };
+    return {
+      ok: true,
+      total: result.totalRowCount ?? records.length,
+      records,
+      used: { env: active, backend: env.backendUrl, app: env.app, query: name },
+    };
   } catch (e) {
     if (String(e).includes("HTTP 401")) {
       await clearAuth(active); // token révoqué côté serveur

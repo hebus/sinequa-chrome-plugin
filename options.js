@@ -1,8 +1,12 @@
 // Page d'options — CRUD des environnements (équivalent des .env.<nom> du CLI).
+// Affichée en dialog native par-dessus chrome://extensions (open_in_tab: false).
 // L'environnement actif se choisit dans la popup ; ici on gère les définitions.
-import { clearAuth, deleteEnv, ensureHostPermission, getState, saveEnv } from "./sinequa.js";
+import { clearAuth, deleteEnv, ensureHostPermission, getState, saveEnv, setActiveEnv } from "./sinequa.js";
 
-const tbody = document.querySelector("#env-table tbody");
+const EDIT_ICON = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M11.1 2.2 13.8 4.9 5.6 13.1l-3.3.6.6-3.3z"/></svg>`;
+const TRASH_ICON = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.2h11M6.2 4.2V2.8h3.6v1.4M3.8 4.2l.7 9.4h7l.7-9.4M6.5 7v4M9.5 7v4"/></svg>`;
+
+const list = document.getElementById("env-list");
 const form = document.getElementById("env-form");
 const formTitle = document.getElementById("form-title");
 const cancelBtn = document.getElementById("cancel-btn");
@@ -14,46 +18,103 @@ render();
 
 async function render() {
   const { envs, active, auths } = await getState();
-  tbody.replaceChildren(
+  list.replaceChildren(
     ...Object.values(envs).map((env) => {
-      const tr = document.createElement("tr");
-      tr.append(
-        cell(env.name + (env.name === active ? " ●" : ""), env.name === active ? "actif" : ""),
-        cell(env.backendUrl),
-        cell(env.app),
-        cell(env.queryName ?? (env.discoveredQueryName ? `${env.discoveredQueryName} (auto)` : "auto")),
-        cell(tokenStatus(auths[env.name])),
-      );
-      const actions = document.createElement("td");
+      const li = document.createElement("li");
+      li.className = `env-card${env.name === active ? " active" : ""}`;
+
+      const main = document.createElement("div");
+      main.className = "env-main";
+
+      const head = document.createElement("div");
+      head.className = "env-head";
+      const name = document.createElement("span");
+      name.className = "env-name";
+      name.textContent = env.name;
+      head.append(name);
+      if (env.name === active) head.append(badge("actif", "accent"));
+      head.append(tokenBadge(auths[env.name]));
+
+      const url = document.createElement("div");
+      url.className = "env-url";
+      url.textContent = env.backendUrl;
+      url.title = env.backendUrl;
+
+      const metaText = `app ${env.app} · query ${env.queryName ?? (env.discoveredQueryName ? `${env.discoveredQueryName} (auto)` : "auto")}`;
+      const meta = document.createElement("div");
+      meta.className = "env-meta";
+      meta.textContent = metaText;
+      meta.title = metaText;
+
+      main.append(head, url, meta);
+
+      const actions = document.createElement("div");
+      actions.className = "env-actions";
+      if (env.name !== active) {
+        const activate = document.createElement("button");
+        activate.type = "button";
+        activate.className = "activate-btn";
+        activate.textContent = "Activer";
+        activate.title = `Faire de « ${env.name} » l'environnement des recherches`;
+        activate.onclick = async () => {
+          await setActiveEnv(env.name);
+          render();
+        };
+        actions.append(activate);
+      }
       actions.append(
-        smallBtn("Modifier", () => startEdit(env)),
-        smallBtn("Supprimer", () => remove(env)),
+        iconBtn(EDIT_ICON, `Modifier « ${env.name} »`, () => startEdit(env)),
+        deleteBtn(env),
       );
-      tr.append(actions);
-      return tr;
+
+      li.append(main, actions);
+      return li;
     }),
   );
 }
 
-function tokenStatus(auth) {
-  if (!auth?.token) return "—";
+function badge(text, kind = "", title = "") {
+  const span = document.createElement("span");
+  span.className = `badge ${kind}`;
+  span.textContent = text;
+  if (title) span.title = title;
+  return span;
+}
+
+function tokenBadge(auth) {
+  if (!auth?.token) return badge("aucun token");
   const expMs = (auth.claims?.exp ?? 0) * 1000;
-  if (!expMs) return "présent";
-  return expMs < Date.now() ? "expiré" : `valide jusqu'au ${new Date(expMs).toLocaleString()}`;
+  if (!expMs) return badge("token présent", "ok");
+  if (expMs < Date.now()) return badge("token expiré", "err");
+  return badge("token valide", "ok", `Valide jusqu'au ${new Date(expMs).toLocaleString()}`);
 }
 
-function cell(text, title = "") {
-  const td = document.createElement("td");
-  td.textContent = text;
-  if (title) td.title = title;
-  return td;
-}
-
-function smallBtn(label, onclick) {
+function iconBtn(icon, title, onclick) {
   const b = document.createElement("button");
   b.type = "button";
-  b.textContent = label;
+  b.className = "icon-btn";
+  b.innerHTML = icon;
+  b.title = title;
   b.onclick = onclick;
+  return b;
+}
+
+/** Suppression en deux temps — confirm() est bloqué dans la dialog embarquée de chrome://extensions. */
+function deleteBtn(env) {
+  const b = iconBtn(TRASH_ICON, `Supprimer « ${env.name} » (et son token)`, () => {
+    if (!b.classList.contains("confirm")) {
+      b.classList.add("confirm");
+      b.replaceChildren("Supprimer ?");
+      setTimeout(() => {
+        if (!b.isConnected) return;
+        b.classList.remove("confirm");
+        b.innerHTML = TRASH_ICON;
+      }, 3000);
+      return;
+    }
+    remove(env);
+  });
+  b.classList.add("danger");
   return b;
 }
 
@@ -108,7 +169,11 @@ form.addEventListener("submit", async (e) => {
   }
 
   await saveEnv(env);
-  showMessage(`Environnement « ${env.name} » enregistré.`);
+  // un environnement fraîchement créé devient l'environnement des recherches —
+  // sinon la palette continue d'interroger l'ancien actif, à rebours de l'intention
+  const created = !editing;
+  if (created) await setActiveEnv(env.name);
+  showMessage(`Environnement « ${env.name} » enregistré${created ? " et activé" : ""}.`);
   resetForm();
   render();
 });
@@ -119,7 +184,6 @@ async function remove(env) {
     showMessage("Impossible de supprimer le dernier environnement.", true);
     return;
   }
-  if (!confirm(`Supprimer l'environnement « ${env.name} » (et son token) ?`)) return;
   await deleteEnv(env.name);
   showMessage(`Environnement « ${env.name} » supprimé.`);
   if (editing === env.name) resetForm();

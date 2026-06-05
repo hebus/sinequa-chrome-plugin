@@ -50,7 +50,8 @@ avec **un token par environnement**, stocké dans `chrome.storage.local`. Le nom
 optionnel — résolu depuis la config de l'app (`defaultQueryName`, sinon première query, sinon
 `_query`), comme le REPL du sample.
 
-- ⚙ dans la popup → page d'options (ajout / modification / suppression)
+- ⚙ dans la popup → options en **dialog native** par-dessus `chrome://extensions`
+  (ajout / modification / suppression — suppression en deux temps, `confirm()` y est bloqué)
 - le sélecteur en haut de la popup bascule l'environnement actif (l'équivalent de `.use <nom>`)
 - les backends hors `docsearch.sinequa.com` passent par `optional_host_permissions` :
   Chrome demande la permission à l'enregistrement de l'environnement (ou au login)
@@ -106,7 +107,7 @@ Affichage : titre (lien `url1`), extraits pertinents (texte brut), `treepath`, t
 | `background.js` | service worker — login (silencieux puis interactif), renouvellement horaire, omnibox, palette |
 | `content.js` | palette « Spotlight » injectée à la demande (Shadow DOM, navigation clavier) |
 | `popup.html/css/js` | UI : environnement actif, statut, recherche, résultats (navigation clavier) |
-| `options.html/css/js` | gestion des environnements |
+| `options.html/css/js` | gestion des environnements (dialog embarquée, cartes) |
 
 ## Debug
 

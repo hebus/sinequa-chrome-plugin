@@ -1,7 +1,7 @@
 // Popup — sélecteur d'environnement, état de connexion, recherches.
 // Le login interactif est délégué au service worker (la popup se ferme dès qu'un
 // onglet s'ouvre) ; les recherches se font ici (la popup reste ouverte pendant un fetch).
-import { ensureHostPermission, fetchQuery, getState, getValidAuth, setActiveEnv, storeAuth } from "./sinequa.js";
+import { ensureHostPermission, fetchQuery, getState, getValidAuth, resolveQueryName, setActiveEnv, storeAuth } from "./sinequa.js";
 
 const el = (id) => document.getElementById(id);
 const envSelect = el("env-select");
@@ -161,10 +161,14 @@ form.addEventListener("submit", async (e) => {
   navHint.hidden = true;
   results.replaceChildren();
   try {
-    const { result, refreshedToken } = await fetchQuery(env, auth.token, { text });
+    // nom résolu ici pour l'afficher : la ligne méta montre les paramètres réellement interrogés
+    const name = await resolveQueryName(env, auth.token);
+    const { result, refreshedToken } = await fetchQuery(env, auth.token, { text, name });
     if (refreshedToken) auth = await storeAuth(env.name, refreshedToken); // renouvellement transparent
     showMessage("");
     renderResults(result);
+    meta.textContent += ` · ${env.name} · ${env.app} · ${name}`;
+    meta.title = env.backendUrl;
   } catch (err) {
     if (String(err).includes("HTTP 401")) {
       // token révoqué/expiré côté serveur → retour à l'état déconnecté
