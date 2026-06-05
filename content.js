@@ -22,6 +22,15 @@
   const SEARCH_ICON = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.6"/><path d="m10.6 10.6 3.2 3.2"/></svg>`;
   const DOC_ICON = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 1.8h5.2L12.5 5v9.2H4z"/><path d="M9 1.8V5h3.5"/></svg>`;
 
+  // thème : auto (système) → clair → sombre, préférence partagée avec le popup (storage)
+  const THEME_ICONS = {
+    auto: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="5.8"/><path d="M8 2.2a5.8 5.8 0 0 1 0 11.6z" fill="currentColor" stroke="none"/></svg>`,
+    light: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.2v1.6M8 13.2v1.6M1.2 8h1.6M13.2 8h1.6M3.3 3.3l1.1 1.1M11.6 11.6l1.1 1.1M12.7 3.3l-1.1 1.1M4.4 11.6l-1.1 1.1"/></svg>`,
+    dark: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13.4 9.7A5.6 5.6 0 1 1 6.3 2.6a4.6 4.6 0 0 0 7.1 7.1z"/></svg>`,
+  };
+  const THEME_LABELS = { auto: "auto (système)", light: "clair", dark: "sombre" };
+  const THEME_CYCLE = { auto: "light", light: "dark", dark: "auto" };
+
   const CSS = `
     :host { all: initial; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -37,13 +46,12 @@
       font: 14px/1.45 -apple-system, "Segoe UI", system-ui, sans-serif;
       -webkit-font-smoothing: antialiased;
     }
-    @media (prefers-color-scheme: dark) {
-      .overlay {
-        --bg: #1c2128; --fg: #e6edf3; --muted: #9198a1; --faint: #768390;
-        --border: rgba(240, 246, 252, 0.12); --hover: #262c36;
-        --accent: #539bf5; --sel: #1c2d45; --kbd-bg: #262c36;
-        background: rgba(8, 10, 14, 0.55);
-      }
+    /* thème sombre piloté par classe : préférence utilisateur (auto/clair/sombre) */
+    .overlay.dark {
+      --bg: #1c2128; --fg: #e6edf3; --muted: #9198a1; --faint: #768390;
+      --border: rgba(240, 246, 252, 0.12); --hover: #262c36;
+      --accent: #539bf5; --sel: #1c2d45; --kbd-bg: #262c36;
+      background: rgba(8, 10, 14, 0.55);
     }
     .overlay.open { opacity: 1; }
 
@@ -86,6 +94,14 @@
     }
     .spinner.on { visibility: visible; }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    .theme {
+      flex: none; display: inline-flex; padding: 5px;
+      border: none; border-radius: 7px; background: none;
+      color: var(--faint); cursor: pointer;
+    }
+    .theme:hover { background: var(--hover); color: var(--fg); }
+    .theme svg { width: 16px; height: 16px; }
 
     .body {
       max-height: 0; overflow-y: auto; overscroll-behavior: contain;
@@ -165,6 +181,48 @@
     if (msg?.type === "palette-toggle") (isOpen ? close : show)();
   });
 
+  /* ─── Thème ─── */
+
+  let themePref = "auto";
+  const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  darkQuery.addEventListener("change", () => {
+    if (themePref === "auto") applyTheme(); // suit le système en direct
+  });
+  try {
+    // préférence changée depuis le popup (ou un autre onglet) → synchro immédiate
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === "local" && changes.theme) {
+        themePref = normalizeTheme(changes.theme.newValue);
+        applyTheme();
+      }
+    });
+  } catch {
+    /* contexte mort : l'instance sera détruite au prochain échange */
+  }
+
+  function normalizeTheme(value) {
+    return value in THEME_CYCLE ? value : "auto";
+  }
+
+  async function loadTheme() {
+    applyTheme(); // valeur courante tout de suite (pas de flash en attendant le storage)
+    try {
+      const { theme } = await chrome.storage.local.get("theme");
+      themePref = normalizeTheme(theme);
+    } catch {
+      return; /* contexte mort : on garde la valeur courante */
+    }
+    applyTheme();
+  }
+
+  function applyTheme() {
+    if (!refs) return;
+    const dark = themePref === "dark" || (themePref === "auto" && darkQuery.matches);
+    refs.overlay.classList.toggle("dark", dark);
+    refs.themeBtn.innerHTML = THEME_ICONS[themePref];
+    refs.themeBtn.title = `Thème : ${THEME_LABELS[themePref]} — cliquer pour changer`;
+  }
+
   /* ─── Robustesse au rechargement de l'extension ───
      Quand l'extension est rechargée/mise à jour, cette instance devient orpheline :
      chrome.runtime.sendMessage lève alors une exception SYNCHRONE (« Extension context
@@ -214,6 +272,7 @@
             <input type="text" placeholder="Rechercher dans la documentation…" autocomplete="off" spellcheck="false" />
             <span class="spinner"></span>
             <span class="badge"></span>
+            <button class="theme" type="button"></button>
           </div>
           <div class="body">
             <ul class="results" role="listbox"></ul>
@@ -239,6 +298,7 @@
       input: $("input"),
       spinner: $(".spinner"),
       badge: $(".badge"),
+      themeBtn: $(".theme"),
       body: $(".body"),
       list: $(".results"),
       state: $(".state"),
@@ -262,6 +322,15 @@
       if (e.target === refs.overlay) close(); // clic sur le fond uniquement
     });
     refs.panel.addEventListener("click", () => refs.input.focus());
+    refs.themeBtn.addEventListener("click", () => {
+      themePref = THEME_CYCLE[themePref];
+      applyTheme();
+      try {
+        chrome.storage.local.set({ theme: themePref }); // partagé avec popup/options
+      } catch {
+        /* contexte mort : préférence appliquée localement seulement */
+      }
+    });
     refs.input.addEventListener("input", onType);
     refs.input.addEventListener("keydown", onKey);
     refs.list.addEventListener("click", (e) => {
@@ -276,6 +345,7 @@
 
   async function show() {
     if (!refs) build();
+    loadTheme(); // applique aussi la valeur par défaut en attendant le storage
     lastFocus = document.activeElement;
     isOpen = true;
     selected = -1;

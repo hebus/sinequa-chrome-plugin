@@ -14,6 +14,16 @@ const message = document.getElementById("message");
 
 let editing = null; // nom de l'environnement en cours d'édition
 
+// thème : suit la préférence partagée (bouton dans le popup et la palette)
+applyTheme();
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && changes.theme) applyTheme();
+});
+async function applyTheme() {
+  const { theme } = await chrome.storage.local.get("theme");
+  document.documentElement.style.colorScheme = theme === "light" || theme === "dark" ? theme : "light dark";
+}
+
 render();
 
 async function render() {

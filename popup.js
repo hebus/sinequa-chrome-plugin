@@ -17,10 +17,42 @@ const meta = el("meta");
 const results = el("results");
 const navHint = el("nav-hint");
 const shortcutHint = el("shortcut-hint");
+const themeBtn = el("theme-btn");
 
 let env = null;
 let auth = null;
 let selIdx = -1; // sélection clavier dans la liste de résultats
+
+/* ─── Thème : auto (système) → clair → sombre, partagé avec la palette (storage) ───
+   color-scheme forcé sur :root → tous les light-dark() du CSS suivent. */
+
+const THEME_ICONS = {
+  auto: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="5.8"/><path d="M8 2.2a5.8 5.8 0 0 1 0 11.6z" fill="currentColor" stroke="none"/></svg>`,
+  light: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.2v1.6M8 13.2v1.6M1.2 8h1.6M13.2 8h1.6M3.3 3.3l1.1 1.1M11.6 11.6l1.1 1.1M12.7 3.3l-1.1 1.1M4.4 11.6l-1.1 1.1"/></svg>`,
+  dark: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13.4 9.7A5.6 5.6 0 1 1 6.3 2.6a4.6 4.6 0 0 0 7.1 7.1z"/></svg>`,
+};
+const THEME_LABELS = { auto: "auto (système)", light: "clair", dark: "sombre" };
+const THEME_CYCLE = { auto: "light", light: "dark", dark: "auto" };
+
+let themePref = "auto";
+
+function applyTheme() {
+  document.documentElement.style.colorScheme = themePref === "auto" ? "light dark" : themePref;
+  themeBtn.innerHTML = THEME_ICONS[themePref];
+  themeBtn.title = `Thème : ${THEME_LABELS[themePref]} — cliquer pour changer`;
+}
+
+themeBtn.onclick = async () => {
+  themePref = THEME_CYCLE[themePref];
+  applyTheme();
+  await chrome.storage.local.set({ theme: themePref });
+};
+
+applyTheme(); // icône par défaut tout de suite, préférence stockée juste après
+chrome.storage.local.get("theme").then(({ theme }) => {
+  themePref = theme in THEME_CYCLE ? theme : "auto";
+  applyTheme();
+});
 
 optionsBtn.onclick = () => chrome.runtime.openOptionsPage();
 envSelect.onchange = async () => {
