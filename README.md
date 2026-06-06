@@ -9,6 +9,11 @@ L'authentification reprend le pattern du CLI [`nodejs-atomic-sample`](../nodejs-
 permissions, les `fetch` de l'extension ne sont pas soumis au CORS et portent les cookies du
 backend — plus besoin de serveur loopback local ni de snippet console.
 
+> **Autres navigateurs** : l'extension fonctionne telle quelle sur **Edge** (Chromium) —
+> `edge://extensions`, mode développeur, charger ce même dossier. Le portage **Firefox**
+> vit dans [`firefox/`](firefox/README.md) — signature du `.xpi` :
+> [ci-dessous](#firefox--signer-le-xpi-powershell).
+
 ## Installation (mode développeur)
 
 1. Chrome → `chrome://extensions`
@@ -114,6 +119,39 @@ Affichage : titre (lien `url1`), extraits pertinents (texte brut), `treepath`, t
 | `content.js` | palette « Spotlight » injectée à la demande (Shadow DOM, navigation clavier) |
 | `popup.html/css/js` | UI : environnement actif, statut, recherche, résultats (navigation clavier) |
 | `options.html/css/js` | gestion des environnements (dialog embarquée, cartes) |
+| `icons/` | icônes PNG (16/32/48/128) — régénérables via `node icons/gen-icons.mjs` |
+
+## Firefox : signer le .xpi (PowerShell)
+
+Firefox **release** n'installe que des extensions signées par Mozilla (la pref
+`xpinstall.signatures.required` y est ignorée — elle n'agit que sur ESR / Developer Edition).
+La signature passe par addons.mozilla.org en canal **unlisted** : le `.xpi` est signé mais
+**pas publié** sur le store.
+
+1. **Identifiants API AMO** (compte Firefox gratuit) : générer le couple *JWT issuer* / *JWT
+   secret* sur <https://addons.mozilla.org/developers/addon/api/key/>
+2. **Signer** (depuis la racine du repo) :
+
+   ```powershell
+   $env:WEB_EXT_API_KEY = "user:XXXXXXX:XXX"   # JWT issuer
+   $env:WEB_EXT_API_SECRET = "le-jwt-secret"
+   npx web-ext sign --source-dir firefox --channel unlisted --artifacts-dir dist
+   ```
+
+   `web-ext` lit les deux variables d'environnement, soumet le paquet, attend la validation
+   AMO (généralement < 1 min en unlisted) et télécharge le `.xpi` **signé** dans `dist/`.
+3. **Installer** : double-clic sur le `.xpi`, ou `about:addons` → ⚙ → **Installer un module
+   depuis un fichier…** — installation durable, aucune pref à toucher, fonctionne sur tous
+   les Firefox (même `gecko.id` → un nouveau `.xpi` remplace l'ancien).
+
+À savoir :
+
+- AMO refuse de re-signer une version déjà soumise → **incrémenter `version`** dans
+  `firefox/manifest.json` avant chaque nouvelle signature
+- les `$env:` ne vivent que le temps de la session PowerShell — ne pas committer les
+  identifiants ; en cas de fuite, les révoquer/régénérer sur la page des clés API
+- test rapide sans signature : `about:debugging` → chargement temporaire
+  (cf. [firefox/README.md](firefox/README.md))
 
 ## Debug
 
