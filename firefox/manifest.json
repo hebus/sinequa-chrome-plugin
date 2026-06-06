@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "Sinequa Doc Search",
+  "version": "0.4.0",
+  "description": "Recherche Sinequa multi-backends depuis Firefox (par défaut : docsearch.sinequa.com, app tech-doc-ns)",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "sinequa-doc-search@chapsvision.net",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": { "required": ["none"] }
+    },
+    "gecko_android": {
+      "strict_min_version": "142.0"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    },
+    "default_popup": "popup.html",
+    "default_title": "Sinequa Doc Search"
+  },
+  "commands": {
+    "toggle-palette": {
+      "suggested_key": { "default": "Ctrl+Shift+Space", "mac": "Command+Shift+Space" },
+      "description": "Ouvrir la palette de recherche sur la page courante"
+    }
+  },
+  "background": {
+    "scripts": ["background.js"],
+    "type": "module"
+  },
+  "omnibox": { "keyword": "sq" },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "permissions": ["storage", "alarms", "scripting", "activeTab"],
+  "host_permissions": ["https://docsearch.sinequa.com/*"],
+  "optional_host_permissions": ["https://*/*"]
+}

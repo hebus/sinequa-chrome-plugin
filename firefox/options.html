@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Sinequa Doc Search — Environnements</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <header>
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+      <circle cx="7" cy="7" r="4.6"/><path d="m10.6 10.6 3.2 3.2"/>
+    </svg>
+    <h1>Environnements</h1>
+  </header>
+
+  <p class="hint">
+    Chaque environnement pointe sur un backend Sinequa avec son app. La query est optionnelle (résolue depuis la config de l'app).
+    Un backend hors <code>docsearch.sinequa.com</code> déclenche une demande de permission Firefox.
+  </p>
+
+  <ul id="env-list"></ul>
+
+  <section class="form-card">
+    <h2 id="form-title">Ajouter un environnement</h2>
+    <form id="env-form">
+      <label>Nom <input name="name" required pattern="[\w.\-]+" title="lettres, chiffres, . _ -" placeholder="preprod" /></label>
+      <label>Backend <input name="backendUrl" type="url" required placeholder="https://preprod.exemple.com" /></label>
+      <label>App <input name="app" required placeholder="_mon-app" /></label>
+      <label><span>Query <span class="optional">(optionnel)</span></span> <input name="queryName" placeholder="auto" /></label>
+      <div class="actions">
+        <button type="submit" id="save-btn" class="primary">Enregistrer</button>
+        <button type="button" id="cancel-btn" hidden>Annuler</button>
+      </div>
+    </form>
+  </section>
+
+  <div id="message" hidden></div>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Sinequa Doc Search</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <select id="env-select" title="Environnement"></select>
+    <div id="status">
+      <span id="status-dot" class="dot"></span>
+      <span id="status-text">Vérification…</span>
+    </div>
+    <button id="auth-btn" hidden></button>
+    <button id="theme-btn" class="icon-btn" title="Thème"></button>
+    <button id="options-btn" class="icon-btn" title="Gérer les environnements">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+  </header>
+
+  <form id="search-form" hidden>
+    <div class="searchbox">
+      <svg class="lens" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+        <circle cx="7" cy="7" r="4.6"/><path d="m10.6 10.6 3.2 3.2"/>
+      </svg>
+      <input id="search-input" type="search" placeholder="Rechercher dans la documentation…" autocomplete="off" autofocus />
+      <button type="submit" id="search-btn" title="Rechercher (Entrée)">↵</button>
+    </div>
+  </form>
+
+  <div id="message" hidden></div>
+  <div id="meta" hidden></div>
+  <ul id="results"></ul>
+
+  <footer id="hint">
+    <span id="nav-hint" hidden><kbd>↑</kbd><kbd>↓</kbd> naviguer · <kbd>↵</kbd> ouvrir</span>
+    <span id="shortcut-hint"></span>
+  </footer>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+# artefacts de build/signature (web-ext build / web-ext sign)
+dist/
+web-ext-artifacts/
+
+# état local web-ext (uuid de la dernière soumission AMO)
+.amo-upload-uuid

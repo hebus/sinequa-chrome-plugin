@@ -1,0 +1,177 @@
+/* Page d'options — affichée en ligne dans about:addons (open_in_tab: false).
+   Même langage visuel que la palette et le popup. */
+
+:root {
+  color-scheme: light dark;
+  --bg: light-dark(#ffffff, #1c2128);
+  --fg: light-dark(#1f2328, #e6edf3);
+  --border: light-dark(rgba(27, 31, 36, 0.12), rgba(240, 246, 252, 0.12));
+  --muted: light-dark(#636c76, #9198a1);
+  --faint: light-dark(#8b949e, #768390);
+  --hover: light-dark(#f6f8fa, #262c36);
+  --accent: light-dark(#0969da, #539bf5);
+  --sel: light-dark(#eef4fc, #1c2d45);
+  --kbd-bg: light-dark(#f6f8fa, #262c36);
+  --ok: light-dark(#1a7f37, #57ab5a);
+  --err: light-dark(#cf222e, #f47067);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  width: 540px;
+  margin: 0;
+  padding: 16px 18px;
+  font: 13px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+/* ─── Header ─── */
+
+header { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; }
+header svg { width: 17px; height: 17px; color: var(--accent); flex: none; }
+h1 { font-size: 16px; font-weight: 650; margin: 0; }
+
+.hint { color: var(--muted); font-size: 12px; margin: 0 0 14px; }
+code {
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--kbd-bg);
+  border: 1px solid var(--border);
+}
+
+/* ─── Liste des environnements (cartes) ─── */
+
+#env-list { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+
+.env-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  border-left: 2px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+}
+.env-card:hover { background: var(--hover); }
+.env-card.active { border-left-color: var(--accent); background: var(--sel); }
+
+.env-main { flex: 1; min-width: 0; }
+
+.env-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.env-name { font-weight: 650; font-size: 13.5px; }
+.env-card.active .env-name { color: var(--accent); }
+
+.badge {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: var(--kbd-bg);
+  white-space: nowrap;
+}
+.badge.accent { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); background: var(--sel); }
+.badge.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 35%, transparent); background: color-mix(in srgb, var(--ok) 10%, transparent); }
+.badge.err { color: var(--err); border-color: color-mix(in srgb, var(--err) 35%, transparent); background: color-mix(in srgb, var(--err) 8%, transparent); }
+
+.env-url {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.env-meta {
+  margin-top: 1px;
+  font-size: 11px;
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.env-actions { display: flex; gap: 4px; flex: none; }
+
+/* ─── Boutons ─── */
+
+button {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+button:hover { border-color: var(--accent); color: var(--accent); }
+button:disabled { opacity: 0.5; cursor: wait; }
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+button.primary:hover { filter: brightness(1.1); color: #fff; }
+
+.activate-btn { font-size: 11px; font-weight: 600; padding: 4px 10px; color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+.activate-btn:hover { background: var(--sel); }
+
+.icon-btn { display: inline-flex; padding: 6px; color: var(--muted); border-color: transparent; }
+.icon-btn svg { width: 14px; height: 14px; }
+.icon-btn:hover { background: var(--bg); border-color: var(--border); color: var(--accent); }
+.icon-btn.danger:hover { color: var(--err); }
+.icon-btn.confirm { color: #fff; background: var(--err); border-color: var(--err); font-size: 11px; font-weight: 600; padding: 5px 9px; }
+.icon-btn.confirm:hover { color: #fff; filter: brightness(1.1); }
+
+/* ─── Formulaire ─── */
+
+.form-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px 16px;
+  background: var(--kbd-bg);
+}
+h2 { font-size: 13px; font-weight: 650; margin: 0 0 12px; }
+
+form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 14px; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.optional { font-size: 10.5px; font-weight: 400; }
+
+input {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: inherit;
+  caret-color: var(--accent);
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+input:disabled { opacity: 0.6; }
+input::placeholder { color: var(--faint); }
+
+.actions { grid-column: 1 / -1; display: flex; gap: 8px; margin-top: 2px; }
+
+/* ─── Message ─── */
+
+#message { margin-top: 12px; font-size: 12.5px; }
+#message.ok { color: var(--ok); }
+#message.error { color: var(--err); }
