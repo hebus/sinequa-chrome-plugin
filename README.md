@@ -71,6 +71,9 @@ Shadow DOM — aucun conflit de style avec la page) :
   jamais exposé à la page)
 - pages non injectables (`chrome://`, Web Store…) : repli sur la popup
 - non connecté → bouton **Se connecter** directement dans la palette
+- le **badge d'environnement est un sélecteur** (dès qu'il y a plusieurs environnements) :
+  en changer bascule l'actif — partagé avec popup et omnibox —, tente une connexion
+  silencieuse sur le nouveau backend et rejoue la recherche en cours
 
 ### Omnibox (mot-clé `sq`)
 

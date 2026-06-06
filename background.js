@@ -11,6 +11,7 @@
 import {
   clearAuth,
   decodeJwt,
+  ensureHostPermission,
   exchangeCookieForTokens,
   fetchLoginUrl,
   fetchPreLogin,
@@ -19,6 +20,7 @@ import {
   getValidAuth,
   refreshToken,
   resolveQueryName,
+  setActiveEnv,
   storeAuth,
   validateToken,
 } from "./sinequa.js";
@@ -152,8 +154,21 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
   if (msg?.type === "palette-state") {
     getState()
-      .then(async ({ active }) => sendResponse({ env: active, connected: Boolean(await getValidAuth(active)) }))
+      .then(async ({ envs, active }) => sendResponse({ env: active, envs: Object.keys(envs), connected: Boolean(await getValidAuth(active)) }))
       .catch(() => sendResponse(null));
+    return true;
+  }
+  if (msg?.type === "palette-set-env") {
+    (async () => {
+      await setActiveEnv(msg.env);
+      const env = await resolveEnv(msg.env);
+      let connected = Boolean(await getValidAuth(env.name));
+      if (!connected && (await ensureHostPermission(env))) {
+        // session peut-être déjà ouverte sur ce backend → échange silencieux (comme la popup)
+        connected = Boolean(await trySilentLogin(env).catch(() => null));
+      }
+      sendResponse({ ok: true, env: env.name, connected });
+    })().catch((e) => sendResponse({ ok: false, error: String(e?.message ?? e) }));
     return true;
   }
   if (msg?.type === "palette-search") {

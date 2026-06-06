@@ -5,6 +5,8 @@
 //
 // Comportement : panneau centré à l'écran tant que la recherche est vide ; dès que
 // des résultats arrivent, il remonte vers le haut pour laisser la liste se déployer.
+// Le badge d'environnement est un sélecteur : en changer bascule l'actif (partagé avec
+// popup/omnibox) et rejoue la recherche en cours sur le nouveau backend.
 // Clavier : ↑/↓ (ou Tab) sélection, ↵ ouvrir, Ctrl+↵ ouvrir en arrière-plan, Échap fermer.
 (() => {
   if (window.__sinequaPalette) return; // déjà injectée : le listener existant gère le toggle
@@ -82,11 +84,21 @@
       caret-color: var(--accent);
     }
     .search input::placeholder { color: var(--faint); }
+    /* sélecteur d'environnement déguisé en badge — chevron seulement s'il y a un choix */
     .badge {
-      flex: none; font-size: 11px; font-weight: 500; letter-spacing: 0.2px;
+      flex: none; font: inherit; font-size: 11px; font-weight: 500; letter-spacing: 0.2px;
       padding: 3px 9px; border-radius: 99px;
       border: 1px solid var(--border); color: var(--muted); background: var(--kbd-bg);
+      appearance: none; -webkit-appearance: none; outline: none;
+      max-width: 150px; text-overflow: ellipsis; white-space: nowrap;
     }
+    .badge.multi {
+      cursor: pointer; padding-right: 21px;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path d="M2.5 4l2.5 2.5L7.5 4" fill="none" stroke="%238b949e" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+      background-repeat: no-repeat; background-position: right 7px center; background-size: 10px;
+    }
+    .badge.multi:hover { color: var(--fg); border-color: var(--accent); }
+    .badge option { background: var(--bg); color: var(--fg); }
     .spinner {
       flex: none; width: 14px; height: 14px; border-radius: 50%;
       border: 2px solid var(--border); border-top-color: var(--accent);
@@ -271,7 +283,7 @@
             <span class="icon">${SEARCH_ICON}</span>
             <input type="text" placeholder="Rechercher dans la documentation…" autocomplete="off" spellcheck="false" />
             <span class="spinner"></span>
-            <span class="badge"></span>
+            <select class="badge" title="Environnement" hidden></select>
             <button class="theme" type="button"></button>
           </div>
           <div class="body">
@@ -321,7 +333,11 @@
     refs.overlay.addEventListener("mousedown", (e) => {
       if (e.target === refs.overlay) close(); // clic sur le fond uniquement
     });
-    refs.panel.addEventListener("click", () => refs.input.focus());
+    // (sauf le sélecteur d'environnement : lui voler le focus fermerait sa liste native)
+    refs.panel.addEventListener("click", (e) => {
+      if (e.target !== refs.badge) refs.input.focus();
+    });
+    refs.badge.addEventListener("change", onEnvChange);
     refs.themeBtn.addEventListener("click", () => {
       themePref = THEME_CYCLE[themePref];
       applyTheme();
@@ -361,10 +377,47 @@
 
     const st = await send({ type: "palette-state" });
     if (!isOpen) return;
-    refs.badge.textContent = st?.env ?? "";
-    refs.badge.hidden = !st?.env;
+    renderEnvs(st?.envs ?? (st?.env ? [st.env] : []), st?.env);
     setStatus(st?.connected);
     if (st && !st.connected) renderLogin();
+  }
+
+  function renderEnvs(names, active) {
+    refs.badge.replaceChildren(
+      ...names.map((name) => {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        opt.selected = name === active;
+        return opt;
+      }),
+    );
+    refs.badge.hidden = names.length === 0;
+    refs.badge.classList.toggle("multi", names.length > 1); // un seul env : simple badge informatif
+    refs.badge.title = names.length > 1 ? "Changer d'environnement" : "Environnement";
+  }
+
+  /** Bascule l'environnement actif (service worker) puis rejoue la recherche en cours. */
+  async function onEnvChange() {
+    seq++; // toute réponse en vol devient périmée (elle visait l'ancien environnement)
+    clearTimeout(timer);
+    setSpinner(true);
+    const res = await send({ type: "palette-set-env", env: refs.badge.value });
+    if (!isOpen) return;
+    setSpinner(false);
+    setRecords([]);
+    refs.state.hidden = true;
+    refs.body.classList.remove("note");
+    refs.input.focus();
+    if (!res) return; // contexte mort : send() a déjà affiché le message
+    if (!res.ok) {
+      renderNote(res.error ?? "Changement d'environnement impossible.", { error: true });
+      return;
+    }
+    setStatus(res.connected);
+    const text = refs.input.value.trim();
+    if (!res.connected) renderLogin();
+    else if (text.length >= MIN_CHARS) runSearch(text);
   }
 
   function close() {
