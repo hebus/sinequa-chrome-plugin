@@ -176,6 +176,9 @@ form.addEventListener("submit", async (e) => {
   const previous = envs[env.name];
   if (previous && (previous.backendUrl !== env.backendUrl || previous.app !== env.app)) {
     await clearAuth(env.name);
+  } else if (previous?.proxyAuth) {
+    // mode proxy authentifiant détecté au login : même backend, toujours valable
+    env.proxyAuth = true;
   }
 
   await saveEnv(env);

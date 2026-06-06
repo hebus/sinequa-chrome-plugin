@@ -4,6 +4,9 @@
 //    silencieux d'abord (cookie de session existant → échange direct cookie → JWT), sinon
 //    pre-login → provider OAuth → security.oauth getcode → onglet de login → au retour sur
 //    le backend, échange cookie → JWT, validation par une query, stockage, fermeture de l'onglet.
+//    Backends derrière un proxy authentifiant (OIDC silencieux, en-tête OIDC_CLAIM_upn injecté) :
+//    le pre-login est inaccessible avant authentification → repli sur une navigation directe
+//    vers le backend (le proxy fait l'OIDC et pose son cookie), puis même échange cookie → JWT.
 //
 // 2. Renouvellement proactif des tokens (pattern refresh.js du sample) : une alarme horaire
 //    renouvelle en Bearer tout token qui expire dans moins de 24 h — le login navigateur
@@ -18,6 +21,7 @@ import {
   fetchQuery,
   getState,
   getValidAuth,
+  patchEnv,
   refreshToken,
   resolveQueryName,
   setActiveEnv,
@@ -72,11 +76,7 @@ async function interactiveLogin(env) {
     /* pas de session : flow interactif */
   }
 
-  const preLogin = await fetchPreLogin(env);
-  const provider = preLogin.autoOAuthProvider;
-  if (!provider) throw new Error("Aucun provider OAuth découvert via pre-login");
-
-  const loginUrl = await fetchLoginUrl(env, provider, `${env.backendUrl}/`);
+  const loginUrl = await discoverLoginUrl(env);
   const tab = await chrome.tabs.create({ url: loginUrl });
 
   // À chaque navigation aboutie de cet onglet sur le backend, on tente l'échange :
@@ -116,13 +116,47 @@ async function interactiveLogin(env) {
   return auth;
 }
 
-/** Valide les candidats dans l'ordre (une query chacun), renvoie le premier qui passe. */
+/**
+ * URL à ouvrir pour le login interactif. Serveur Sinequa classique : pre-login →
+ * provider OAuth → security.oauth getcode. Si cette découverte échoue (typiquement un
+ * backend derrière un proxy authentifiant, dont les API ne répondent pas avant
+ * authentification), naviguer vers le backend lui-même suffit : le proxy déroule
+ * l'OIDC et pose son cookie de session.
+ */
+async function discoverLoginUrl(env) {
+  try {
+    const { autoOAuthProvider } = await fetchPreLogin(env);
+    if (!autoOAuthProvider) throw new Error("Aucun provider OAuth découvert via pre-login");
+    return await fetchLoginUrl(env, autoOAuthProvider, `${env.backendUrl}/`);
+  } catch {
+    return `${env.backendUrl}/`;
+  }
+}
+
+/**
+ * Valide les candidats dans l'ordre (une query chacun), renvoie le premier qui passe.
+ * Si aucun ne passe en Bearer seul, réessaie en portant aussi les cookies : derrière
+ * un proxy authentifiant, les requêtes sans le cookie du proxy sont redirigées vers
+ * l'IdP. Un succès dans ce mode est persisté (env.proxyAuth) pour les requêtes suivantes.
+ */
 async function firstValidToken(env, candidates) {
   for (const candidate of candidates) {
     try {
       return await validateToken(env, candidate);
     } catch {
       /* candidat suivant */
+    }
+  }
+  if (!env.proxyAuth) {
+    const proxyEnv = { ...env, proxyAuth: true };
+    for (const candidate of candidates) {
+      try {
+        const token = await validateToken(proxyEnv, candidate);
+        await patchEnv(env.name, { proxyAuth: true });
+        return token;
+      } catch {
+        /* candidat suivant */
+      }
     }
   }
   throw new Error("Aucun token candidat ne passe la requête de validation");

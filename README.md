@@ -20,6 +20,9 @@ backend — plus besoin de serveur loopback local ni de snippet console.
 
 ### Authentification (background.js)
 
+> Analyse détaillée (familles de serveurs, proxy authentifiant OIDC, séquences, limites) :
+> [docs/login.md](docs/login.md)
+
 1. **Silencieux d'abord** : si un cookie de session Sinequa existe déjà (vous êtes passé sur
    le backend récemment), l'échange cookie → JWT se fait sans rien ouvrir.
 2. Sinon, **flow interactif** :

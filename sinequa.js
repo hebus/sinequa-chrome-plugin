@@ -24,6 +24,18 @@ const JSON_HEADERS = {
   "Sinequa-Force-Camel-Case": "true",
 };
 
+/**
+ * Options fetch d'authentification d'un environnement : Bearer, plus les cookies
+ * quand l'env est derrière un proxy authentifiant (env.proxyAuth, détecté au login) —
+ * sans son cookie de session, le proxy redirigerait la requête vers l'IdP.
+ */
+function authFetchOptions(env, token) {
+  return {
+    headers: { ...JSON_HEADERS, Authorization: `Bearer ${token}` },
+    ...(env.proxyAuth && { credentials: "include" }),
+  };
+}
+
 async function asJson(res) {
   const text = await res.text();
   let body;
@@ -69,21 +81,28 @@ export async function fetchLoginUrl(env, provider, originalUrl) {
 /**
  * Échange cookie de session → JWT : challenge (csrfToken) puis security.webtoken
  * { tokenInCookie: false }. Renvoie la liste des candidats (strings), priorisée.
- * Échoue si aucun cookie de session (challenge sans csrfToken).
+ *
+ * Sans csrfToken, le webtoken est quand même tenté : derrière un proxy authentifiant
+ * (OIDC silencieux, en-tête OIDC_CLAIM_upn injecté vers Sinequa), la requête est
+ * authentifiée par le cookie du proxy sans qu'il y ait de session cookie Sinequa.
+ * Échoue si aucune session d'aucune sorte (réponse non JSON ou sans token).
  */
 export async function exchangeCookieForTokens(env) {
   const challenge = await fetch(`${env.backendUrl}/api/v1/challenge?action=getCsrfToken&suppressErrors=true`, {
     credentials: "include",
     headers: { Accept: "application/json" },
   }).then(asJson);
-  if (!challenge?.csrfToken) throw new Error("Pas de session sur le backend (challenge sans csrfToken)");
+  const csrf = challenge?.csrfToken;
 
   const webtoken = await fetch(`${env.backendUrl}/api/v1/security.webtoken`, {
     method: "POST",
     credentials: "include",
-    headers: { ...JSON_HEADERS, "Sinequa-csrf-token": challenge.csrfToken },
+    headers: { ...JSON_HEADERS, ...(csrf && { "Sinequa-csrf-token": csrf }) },
     body: JSON.stringify({ action: "get", tokenInCookie: false }),
   }).then(asJson);
+  if (typeof webtoken !== "object" || webtoken === null) {
+    throw new Error("Pas de session sur le backend (réponse webtoken non JSON)");
+  }
 
   const fields = Object.fromEntries(Object.entries(webtoken).filter(([, v]) => typeof v === "string" && v.length > 0));
   const prioritized = TOKEN_PARAMS.map((k) => fields[k]).filter(Boolean);
@@ -100,7 +119,7 @@ export async function exchangeCookieForTokens(env) {
 export async function refreshToken(env, token) {
   const res = await fetch(`${env.backendUrl}/api/v1/security.webtoken`, {
     method: "POST",
-    headers: { ...JSON_HEADERS, Authorization: `Bearer ${token}` },
+    ...authFetchOptions(env, token),
     body: JSON.stringify({ action: "get", tokenInCookie: false }),
   });
   const body = await asJson(res);
@@ -119,9 +138,7 @@ export async function resolveQueryName(env, token) {
   if (env.discoveredQueryName) return env.discoveredQueryName;
   try {
     const params = new URLSearchParams({ app: env.app });
-    const app = await fetch(`${env.backendUrl}/api/v1/app?${params}`, {
-      headers: { ...JSON_HEADERS, Authorization: `Bearer ${token}` },
-    }).then(asJson);
+    const app = await fetch(`${env.backendUrl}/api/v1/app?${params}`, authFetchOptions(env, token)).then(asJson);
     const name = app.defaultQueryName || Object.keys(app.queries ?? {})[0] || "_query";
     await patchEnv(env.name, { discoveredQueryName: name });
     return name;
@@ -141,7 +158,7 @@ export async function fetchQuery(env, token, query) {
   console.log(`[query] ${env.name} → POST ${env.backendUrl}/api/v1/query (app=${env.app}, query=${name}, text=${JSON.stringify(query.text ?? "")})`);
   const res = await fetch(`${env.backendUrl}/api/v1/query`, {
     method: "POST",
-    headers: { ...JSON_HEADERS, Authorization: `Bearer ${token}` },
+    ...authFetchOptions(env, token),
     body: JSON.stringify({
       app: env.app,
       query: { ...query, name },
