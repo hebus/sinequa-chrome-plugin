@@ -128,6 +128,9 @@ button:disabled { opacity: 0.5; cursor: wait; }
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ─── Résultats ─── */

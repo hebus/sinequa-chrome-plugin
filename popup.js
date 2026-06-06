@@ -193,14 +193,11 @@ form.addEventListener("submit", async (e) => {
   navHint.hidden = true;
   results.replaceChildren();
   try {
-    // nom résolu ici pour l'afficher : la ligne méta montre les paramètres réellement interrogés
     const name = await resolveQueryName(env, auth.token);
     const { result, refreshedToken } = await fetchQuery(env, auth.token, { text, name });
     if (refreshedToken) auth = await storeAuth(env.name, refreshedToken); // renouvellement transparent
     showMessage("");
     renderResults(result);
-    meta.textContent += ` · ${env.name} · ${env.app} · ${name}`;
-    meta.title = env.backendUrl;
   } catch (err) {
     if (String(err).includes("HTTP 401")) {
       // token révoqué/expiré côté serveur → retour à l'état déconnecté
