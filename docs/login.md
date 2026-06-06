@@ -3,6 +3,10 @@
 Comment l'extension établit la connexion à un backend Sinequa, selon la famille de serveur.
 Le code vit dans `background.js` (orchestration) et `sinequa.js` (appels API + stockage).
 
+> Vérifié en réel sur les deux familles : `docsearch.sinequa.com` (classique) et
+> `insight.chapsvision.com` (proxy authentifiant) — `security.webtoken` émet bien un JWT
+> derrière le proxy, le plan B « requêtes cookie seul » n'a pas été nécessaire.
+
 ## Deux familles de serveurs
 
 | | Sinequa « classique » (ex. `docsearch.sinequa.com`) | Derrière un proxy authentifiant (ex. `insight.chapsvision.com`) |
@@ -102,9 +106,6 @@ d'app invalide le token, et le flag repart de zéro — il sera re-détecté au 
   réseau / réponse HTML), pas en `401` propre — le message « Session expirée » ne se
   déclenche pas dans ce cas. Recliquer **Se connecter** relance le flux. Amélioration
   possible : détecter les réponses HTML/redirect et purger le token.
-- **`security.webtoken` derrière le proxy** : hypothèse non vérifiable sans le serveur — si
-  cet endpoint n'émet pas de JWT dans cette configuration, le plan B est un mode requêtes
-  « cookie seul » (`noAutoAuthentication: false`, sans Bearer).
 - L'échange silencieux côté proxy ne marche que si le navigateur possède déjà un cookie de
   session du proxy (visite récente de l'application) ; sinon le `challenge` est redirigé
   vers l'IdP, origine pour laquelle l'extension n'a pas de host permission → échec net,
