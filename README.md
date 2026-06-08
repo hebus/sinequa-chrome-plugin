@@ -121,6 +121,81 @@ Affichage : titre (lien `url1`), extraits pertinents (texte brut), `treepath`, t
 | `options.html/css/js` | gestion des environnements (dialog embarquée, cartes) |
 | `icons/` | icônes PNG (16/32/48/128) — régénérables via `node icons/gen-icons.mjs` |
 
+## Chrome : empaqueter (.zip / .crx signé)
+
+En usage courant on charge le dossier non empaqueté (cf. [Installation](#installation-mode-développeur)).
+Pour distribuer, deux formats — les artefacts vont dans `dist/` (gitignoré).
+
+### `.zip` — Chrome Web Store
+
+C'est le format attendu par la console développeur du store (et accepté en glisser-déposer sur
+`chrome://extensions`). Seuls les fichiers runtime sont empaquetés — pas `icons/gen-icons.mjs`,
+`docs/`, `README.md` ni `firefox/` :
+
+```powershell
+$ver  = (Get-Content manifest.json -Raw | ConvertFrom-Json).version
+$out  = "dist\sinequa_doc_search-chrome-$ver.zip"
+$stage = "dist\_stage"
+Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory "$stage\icons" -Force | Out-Null
+@('manifest.json','background.js','content.js','sinequa.js',
+  'popup.html','popup.css','popup.js','options.html','options.css','options.js') |
+  ForEach-Object { Copy-Item $_ "$stage\$_" }
+Copy-Item icons\*.png "$stage\icons\"
+Compress-Archive -Path "$stage\*" -DestinationPath $out -Force
+Remove-Item $stage -Recurse -Force
+```
+
+> Le staging est nécessaire : `Compress-Archive` passant `icons\*.png` directement aplatirait
+> les PNG à la racine de l'archive, alors que le manifest les référence sous `icons/`.
+
+### `.crx` signé — distribution hors store
+
+Pour une diffusion directe (double-clic / déploiement interne) sans passer par le store. La
+signature repose sur une **clé privée `.pem`** : la même clé ⇒ le même ID d'extension entre les
+mises à jour. Chrome la génère à la première exécution si elle n'existe pas.
+
+1. **Première fois — créer la clé + le `.crx`** (le dossier décompressé sert de source ; on peut
+   réutiliser le staging du `.zip` ci-dessus, ici `dist\_pkg`) :
+
+   ```powershell
+   $ver  = (Get-Content manifest.json -Raw | ConvertFrom-Json).version
+   $pkg  = "dist\_pkg"
+   Remove-Item $pkg -Recurse -Force -ErrorAction SilentlyContinue
+   New-Item -ItemType Directory "$pkg\icons" -Force | Out-Null
+   @('manifest.json','background.js','content.js','sinequa.js',
+     'popup.html','popup.css','popup.js','options.html','options.css','options.js') |
+     ForEach-Object { Copy-Item $_ "$pkg\$_" }
+   Copy-Item icons\*.png "$pkg\icons\"
+
+   $chrome = "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+   & $chrome --pack-extension="$PWD\$pkg" --no-message-box
+   # -> génère dist\_pkg.crx ET dist\_pkg.pem (la clé, créée car absente)
+
+   Move-Item dist\_pkg.crx "dist\sinequa_doc_search-chrome-$ver.crx" -Force
+   Move-Item dist\_pkg.pem  dist\sinequa_doc_search.pem -Force
+   Remove-Item $pkg -Recurse -Force
+   ```
+
+2. **Mises à jour suivantes — réutiliser la même clé** (ID stable) en la passant à
+   `--pack-extension-key` ; ne pas laisser Chrome en regénérer une :
+
+   ```powershell
+   & $chrome --pack-extension="$PWD\dist\_pkg" `
+             --pack-extension-key="$PWD\dist\sinequa_doc_search.pem" --no-message-box
+   ```
+
+À savoir :
+
+- **`sinequa_doc_search.pem` est une clé privée** — `dist/` est gitignoré, mais sauvegardez-la
+  hors du repo : la perdre = nouvel ID d'extension (réinstallation complète côté utilisateurs).
+  Une fuite permettrait de signer une fausse mise à jour ⇒ la régénérer et republier.
+- Chrome **release** bloque l'installation des `.crx` hors Web Store par défaut (`Extensions
+  désactivées`). Pour un vrai déploiement interne sans store, passer par une **policy
+  d'entreprise** (`ExtensionInstallForcelist` / `ExtensionInstallAllowlist`) plutôt que le
+  double-clic. Edge accepte la même clé et le même `.crx`.
+- l'ID d'extension dérivé de la clé s'affiche après le packaging dans `chrome://extensions`.
+
 ## Firefox : signer le .xpi (PowerShell)
 
 Firefox **release** n'installe que des extensions signées par Mozilla (la pref
