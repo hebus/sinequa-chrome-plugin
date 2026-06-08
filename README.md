@@ -202,6 +202,7 @@ première exécution si elle n'existe pas.
   `HKLM\SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist`, valeur
   `<id>;<url-de-update.xml>`, ou GPO). La policy lève le `CRX_REQUIRED_PROOF_MISSING`. Edge
   accepte la même clé et le même `.crx` (clés `…\Policies\Microsoft\Edge\…`).
+  → kit prêt à l'emploi (`update.xml` + script de policy) : [`deploy/chrome/`](deploy/chrome/README.md).
 - l'ID d'extension dérivé de la clé s'affiche après le packaging dans `chrome://extensions`.
 
 ## Firefox : signer le .xpi (PowerShell)

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Manifeste de mise à jour Omaha pour le force-install du .crx self-signé.
+  - appid    : ID dérivé de dist/sinequa_doc_search.pem (stable tant que la clé ne change pas)
+  - codebase : URL HTTP(S) directe du .crx (à héberger). Pour un partage SMB : file:///\\serveur\share\....crx
+  - version  : DOIT correspondre à la version du manifest.json empaqueté dans le .crx
+  À chaque nouvelle version : ré-empaqueter le .crx (même clé), puis bumper `version` + `codebase` ici.
+-->
+<gupdate xmlns="http://www.google.com/update2/response" protocol="2.0">
+  <app appid="fgcpjinnkonfnkfflpefjpgmfcaefigf">
+    <updatecheck codebase="https://CHANGE_ME.intranet/sinequa/sinequa_doc_search-chrome-0.4.0.crx"
+                 version="0.4.0" />
+  </app>
+</gupdate>
