@@ -151,9 +151,15 @@ Remove-Item $stage -Recurse -Force
 
 ### `.crx` signé — distribution hors store
 
-Pour une diffusion directe (double-clic / déploiement interne) sans passer par le store. La
-signature repose sur une **clé privée `.pem`** : la même clé ⇒ le même ID d'extension entre les
-mises à jour. Chrome la génère à la première exécution si elle n'existe pas.
+Pour un déploiement interne sans passer par le store. La signature repose sur une **clé privée
+`.pem`** : la même clé ⇒ le même ID d'extension entre les mises à jour. Chrome la génère à la
+première exécution si elle n'existe pas.
+
+> ⚠️ **Un `.crx` self-signé ne s'installe PAS en glisser-déposer** sur Chrome stable : il
+> manque la preuve de signature du Web Store, d'où l'erreur `CRX_REQUIRED_PROOF_MISSING`. Le
+> double-clic / drag-and-drop est définitivement bloqué (le flag `--enable-easy-off-store-…`
+> n'existe plus). Le `.crx` ne sert donc **que** via la policy d'entreprise ci-dessous ; pour
+> un simple test, charger le dossier non empaqueté (cf. [Installation](#installation-mode-développeur)).
 
 1. **Première fois — créer la clé + le `.crx`** (le dossier décompressé sert de source ; on peut
    réutiliser le staging du `.zip` ci-dessus, ici `dist\_pkg`) :
@@ -190,10 +196,12 @@ mises à jour. Chrome la génère à la première exécution si elle n'existe pa
 - **`sinequa_doc_search.pem` est une clé privée** — `dist/` est gitignoré, mais sauvegardez-la
   hors du repo : la perdre = nouvel ID d'extension (réinstallation complète côté utilisateurs).
   Une fuite permettrait de signer une fausse mise à jour ⇒ la régénérer et republier.
-- Chrome **release** bloque l'installation des `.crx` hors Web Store par défaut (`Extensions
-  désactivées`). Pour un vrai déploiement interne sans store, passer par une **policy
-  d'entreprise** (`ExtensionInstallForcelist` / `ExtensionInstallAllowlist`) plutôt que le
-  double-clic. Edge accepte la même clé et le même `.crx`.
+- **Déploiement interne réel** : héberger le `.crx` **et** un manifeste `update.xml` (qui
+  déclare l'ID, la version et l'`codebase` = URL du `.crx`) sur un serveur, puis forcer
+  l'installation via la policy `ExtensionInstallForcelist` (registre Windows
+  `HKLM\SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist`, valeur
+  `<id>;<url-de-update.xml>`, ou GPO). La policy lève le `CRX_REQUIRED_PROOF_MISSING`. Edge
+  accepte la même clé et le même `.crx` (clés `…\Policies\Microsoft\Edge\…`).
 - l'ID d'extension dérivé de la clé s'affiche après le packaging dans `chrome://extensions`.
 
 ## Firefox : signer le .xpi (PowerShell)
